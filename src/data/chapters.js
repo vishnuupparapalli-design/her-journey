@@ -1,0 +1,16 @@
+export const chapters = [
+  { id: 'arrival', order: 1, title: 'Arrival', subtitle: 'Light & Fun', color: '#E8A857' },
+  { id: 'reflections', order: 2, title: 'Reflections', subtitle: 'Personality', color: '#7FA7C4' },
+  { id: 'wonders', order: 3, title: 'Wonders', subtitle: 'Interests & Passions', color: '#8FB39B' },
+  { id: 'us_so_far', order: 4, title: 'Us, So Far', subtitle: 'Memories', color: '#D4AF6A' },
+  { id: 'horizons', order: 5, title: 'Horizons', subtitle: 'Dreams & Ambitions', color: '#E8A857' },
+  { id: 'tides', order: 6, title: 'Tides', subtitle: 'Emotions', color: '#4C8C86' },
+  { id: 'constellation', order: 7, title: 'The Constellation', subtitle: 'About Me', color: '#EDEAE0' },
+  { id: 'two_paths', order: 8, title: 'Two Paths, One Sky', subtitle: 'Relationship', color: '#7C6A9C' },
+  { id: 'distance', order: 9, title: 'The Distance Between', subtitle: 'Long-Distance', color: '#7FA7C4' },
+  { id: 'thresholds', order: 10, title: 'Thresholds', subtitle: 'Boundaries', color: '#8FB39B' },
+  { id: 'her_sky', order: 11, title: 'Her Own Sky', subtitle: 'Independent Life', color: '#B77B4A' },
+  { id: 'building', order: 12, title: 'Building Together', subtitle: 'Life With Me', color: '#D4AF6A' },
+  { id: 'weathering', order: 13, title: 'Weathering It', subtitle: 'Difficult Situations', color: '#4C8C86' },
+  { id: 'whats_ahead', order: 14, title: "What's Ahead", subtitle: 'Future & Deep Reflection', color: '#E8A857' },
+];
