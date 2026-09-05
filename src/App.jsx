@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Routes, Route, Link } from 'react-router-dom';
 import { useJourneyStore } from './state/useJourneyStore';
 import QuestionRenderer from './components/QuestionRenderer';
+import { supabase } from './services/supabaseClient';
 
 function JourneyExperience() {
   const {
@@ -28,13 +29,13 @@ function JourneyExperience() {
 
   return (
     <main className="min-h-screen flex flex-col justify-between p-6 md:p-10 relative overflow-hidden bg-void">
-      {/* Atmospheric Background Glow */}
+      {/* Background Glow */}
       <div
         className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full blur-3xl opacity-20 pointer-events-none transition-colors duration-1000"
         style={{ backgroundColor: chapter.color }}
       />
 
-      {/* Top HUD: Chapter Title & Progress */}
+      {/* Top HUD */}
       <header className="relative z-10 flex items-center justify-between max-w-4xl mx-auto w-full">
         <div>
           <span
@@ -61,7 +62,7 @@ function JourneyExperience() {
         </div>
       </header>
 
-      {/* Main Question Card Surface */}
+      {/* Question Card */}
       <div className="relative z-10 my-auto py-8">
         {currentQ ? (
           <QuestionRenderer
@@ -73,12 +74,12 @@ function JourneyExperience() {
         ) : (
           <div className="text-center space-y-4">
             <h2 className="text-3xl font-serif text-moonlight">End of Preview</h2>
-            <p className="text-moonlight/60">You have completed all questions in this preview.</p>
+            <p className="text-moonlight/60">All sample questions answered.</p>
           </div>
         )}
       </div>
 
-      {/* Bottom Controls & Previous button */}
+      {/* Bottom Controls */}
       <footer className="relative z-10 flex items-center justify-between max-w-4xl mx-auto w-full text-xs text-moonlight/40">
         <button
           onClick={prevQuestion}
@@ -89,7 +90,7 @@ function JourneyExperience() {
         </button>
 
         <Link to="/admin" className="hover:text-amber-glow transition-colors">
-          Admin Preview →
+          Admin & Supabase Check →
         </Link>
       </footer>
     </main>
@@ -98,16 +99,49 @@ function JourneyExperience() {
 
 function AdminCheck() {
   const { answers } = useJourneyStore();
+  const [dbStatus, setDbStatus] = useState('Idle');
+
+  const testSupabaseConnection = async () => {
+    setDbStatus('Testing connection...');
+    try {
+      // Test querying the admins table
+      const { data, error } = await supabase.from('admins').select('*');
+      if (error) {
+        // RLS prevents unauthenticated reading, proving security is active!
+        setDbStatus(`Connected! RLS Active: ${error.message}`);
+      } else {
+        setDbStatus(`Connected successfully to Supabase! Admin rows found: ${data.length}`);
+      }
+    } catch (err) {
+      setDbStatus(`Connection failed: ${err.message}`);
+    }
+  };
+
   return (
     <main className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-nebula/40">
-      <div className="max-w-md w-full p-8 rounded-2xl border border-moonlight/10 bg-void/90 space-y-4 text-left">
-        <h2 className="text-2xl font-serif text-moonlight">Admin Route Preview</h2>
-        <p className="text-moonlight/60 text-xs">
-          Stage 2 verification: Below are the answers currently captured in Zustand memory:
-        </p>
-        <pre className="p-3 bg-void rounded-lg text-xs font-mono text-amber-glow overflow-x-auto max-h-48 border border-moonlight/10">
-          {JSON.stringify(answers, null, 2)}
-        </pre>
+      <div className="max-w-md w-full p-8 rounded-2xl border border-moonlight/10 bg-void/90 space-y-5 text-left">
+        <h2 className="text-2xl font-serif text-moonlight">Supabase & State Check</h2>
+        
+        {/* Connection Ping Button */}
+        <div className="p-4 rounded-xl border border-moonlight/10 bg-void/60 space-y-2">
+          <p className="text-xs text-moonlight/60 font-mono">DATABASE CONNECTION TEST</p>
+          <button
+            onClick={testSupabaseConnection}
+            className="w-full py-2.5 px-4 rounded-lg bg-amber-glow text-void font-medium text-xs hover:bg-amber-glow/90 transition-all cursor-pointer"
+          >
+            Ping Supabase Database
+          </button>
+          <p className="text-xs text-moonlight/80 font-mono pt-1">Status: {dbStatus}</p>
+        </div>
+
+        {/* State answers */}
+        <div>
+          <p className="text-xs text-moonlight/60 font-mono mb-1">LOCAL IN-MEMORY ANSWERS</p>
+          <pre className="p-3 bg-void rounded-lg text-xs font-mono text-amber-glow overflow-x-auto max-h-36 border border-moonlight/10">
+            {JSON.stringify(answers, null, 2)}
+          </pre>
+        </div>
+
         <Link
           to="/"
           className="inline-block text-amber-glow hover:underline text-sm pt-2"
