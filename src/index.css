@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+@theme {
+  /* Core Base Colors */
+  --color-void: #0B0E1A;
+  --color-nebula: #1B1F3B;
+  --color-moonlight: #EDEAE0;
+
+  /* Chapter Accent Colors */
+  --color-amber-glow: #E8A857;
+  --color-amberGlow: #E8A857;
+
+  --color-sage-mist: #8FB39B;
+  --color-sageMist: #8FB39B;
+
+  --color-steel-teal: #4C8C86;
+  --color-steelTeal: #4C8C86;
+
+  --color-dusty-violet: #7C6A9C;
+  --color-dustyViolet: #7C6A9C;
+
+  --color-warm-gold: #D4AF6A;
+  --color-warmGold: #D4AF6A;
+
+  --color-ice-blue: #7FA7C4;
+  --color-iceBlue: #7FA7C4;
+
+  --color-ember-copper: #B77B4A;
+  --color-emberCopper: #B77B4A;
+
+  /* Typography */
+  --font-serif: Fraunces, Georgia, serif;
+  --font-sans: "Space Grotesk", sans-serif;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #0B0E1A;
+  color: #EDEAE0;
+  min-height: 100vh;
+}
