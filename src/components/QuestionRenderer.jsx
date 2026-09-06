@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
 
 export default function QuestionRenderer({ question, currentAnswer, onSave, onSkip }) {
-  // Local state for the current input
   const [val, setVal] = useState(currentAnswer?.value ?? null);
 
-  // When question changes, load existing answer if any
   useEffect(() => {
     setVal(currentAnswer?.value ?? null);
   }, [question.id, currentAnswer]);
@@ -17,8 +15,38 @@ export default function QuestionRenderer({ question, currentAnswer, onSave, onSk
     }
   };
 
+  // Accessible Keyboard Navigation (1-9 to select, Enter to confirm, Esc to skip)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Don't intercept typing in free_text textareas
+      if (question.type === 'free_text' && document.activeElement?.tagName === 'TEXTAREA') {
+        return;
+      }
+
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleConfirm();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        onSkip();
+      } else if (question.options && ['single_select', 'mood_select', 'two_path'].includes(question.type)) {
+        const num = parseInt(e.key, 10);
+        if (num >= 1 && num <= question.options.length) {
+          setVal(question.options[num - 1].id);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [val, question]);
+
   return (
-    <div className="w-full max-w-xl mx-auto p-6 md:p-8 rounded-3xl bg-nebula/60 backdrop-blur-xl border border-moonlight/10 shadow-2xl text-left space-y-6 animate-fade-in">
+    <div
+      role="region"
+      aria-label={`Question: ${question.text}`}
+      className="w-full max-w-xl mx-auto p-6 md:p-8 rounded-3xl bg-nebula/60 backdrop-blur-xl border border-moonlight/10 shadow-2xl text-left space-y-6 animate-fade-in"
+    >
       {/* Question Header */}
       <div className="space-y-2">
         <h2 className="text-2xl md:text-3xl font-serif font-normal text-moonlight leading-snug">
@@ -36,19 +64,22 @@ export default function QuestionRenderer({ question, currentAnswer, onSave, onSk
         {/* 1. SINGLE SELECT */}
         {question.type === 'single_select' && (
           <div className="space-y-2.5">
-            {question.options.map((opt) => {
+            {question.options.map((opt, i) => {
               const selected = val === opt.id;
               return (
                 <button
                   key={opt.id}
                   onClick={() => setVal(opt.id)}
-                  className={`w-full text-left p-4 rounded-xl border transition-all duration-200 text-sm md:text-base ${
+                  className={`w-full text-left p-4 rounded-xl border transition-all duration-200 text-sm md:text-base flex items-center justify-between cursor-pointer ${
                     selected
                       ? 'border-amber-glow bg-amber-glow/15 text-moonlight shadow-md'
                       : 'border-moonlight/15 bg-void/40 text-moonlight/80 hover:border-moonlight/30 hover:bg-void/60'
                   }`}
                 >
-                  {opt.label}
+                  <span>{opt.label}</span>
+                  <span className="text-[10px] font-mono text-moonlight/30 border border-moonlight/15 px-2 py-0.5 rounded">
+                    {i + 1}
+                  </span>
                 </button>
               );
             })}
@@ -58,19 +89,20 @@ export default function QuestionRenderer({ question, currentAnswer, onSave, onSk
         {/* 2. MOOD SELECT */}
         {question.type === 'mood_select' && (
           <div className="flex flex-wrap gap-2.5">
-            {question.options.map((opt) => {
+            {question.options.map((opt, i) => {
               const selected = val === opt.id;
               return (
                 <button
                   key={opt.id}
                   onClick={() => setVal(opt.id)}
-                  className={`px-4 py-3 rounded-full border transition-all text-sm md:text-base ${
+                  className={`px-4 py-3 rounded-full border transition-all text-sm md:text-base flex items-center gap-2 cursor-pointer ${
                     selected
                       ? 'border-amber-glow bg-amber-glow/20 text-moonlight scale-105 shadow-md'
                       : 'border-moonlight/15 bg-void/40 text-moonlight/80 hover:border-moonlight/30'
                   }`}
                 >
-                  {opt.label}
+                  <span>{opt.label}</span>
+                  <span className="text-[10px] font-mono opacity-40">{i + 1}</span>
                 </button>
               );
             })}
@@ -94,7 +126,7 @@ export default function QuestionRenderer({ question, currentAnswer, onSave, onSk
                 <button
                   key={opt.id}
                   onClick={toggle}
-                  className={`p-3.5 rounded-xl border text-left text-sm transition-all ${
+                  className={`p-3.5 rounded-xl border text-left text-sm transition-all cursor-pointer ${
                     selected
                       ? 'border-sage-mist bg-sage-mist/20 text-moonlight shadow-sm'
                       : 'border-moonlight/15 bg-void/40 text-moonlight/70 hover:border-moonlight/30'
@@ -117,6 +149,7 @@ export default function QuestionRenderer({ question, currentAnswer, onSave, onSk
               max={question.max ?? 10}
               value={val ?? Math.round(((question.max ?? 10) + (question.min ?? 1)) / 2)}
               onChange={(e) => setVal(Number(e.target.value))}
+              aria-label={question.text}
               className="w-full accent-amber-glow h-2 bg-void/80 rounded-lg cursor-pointer"
             />
             <div className="flex justify-between text-xs text-moonlight/50 font-light">
@@ -135,6 +168,7 @@ export default function QuestionRenderer({ question, currentAnswer, onSave, onSk
               value={val ?? ''}
               onChange={(e) => setVal(e.target.value)}
               placeholder={question.placeholder || 'Write whatever is in your heart...'}
+              aria-label={question.text}
               className="w-full p-4 rounded-2xl bg-void/60 border border-moonlight/20 text-moonlight placeholder-moonlight/30 text-sm md:text-base focus:outline-none focus:border-amber-glow focus:ring-1 focus:ring-amber-glow transition-all"
             />
           </div>
@@ -149,7 +183,7 @@ export default function QuestionRenderer({ question, currentAnswer, onSave, onSk
                 <button
                   key={opt.id}
                   onClick={() => setVal(opt.id)}
-                  className={`p-6 rounded-2xl border text-center transition-all duration-300 ${
+                  className={`p-6 rounded-2xl border text-center transition-all duration-300 cursor-pointer ${
                     selected
                       ? 'border-warm-gold bg-warm-gold/20 text-moonlight scale-105 shadow-xl'
                       : 'border-moonlight/15 bg-void/40 text-moonlight/70 hover:border-moonlight/30'
@@ -170,7 +204,8 @@ export default function QuestionRenderer({ question, currentAnswer, onSave, onSk
                 key={star}
                 type="button"
                 onClick={() => setVal(star)}
-                className="text-3xl md:text-4xl transition-transform hover:scale-125 focus:outline-none"
+                aria-label={`${star} stars`}
+                className="text-3xl md:text-4xl transition-transform hover:scale-125 focus:outline-none cursor-pointer"
               >
                 <span className={star <= (val ?? 0) ? 'text-amber-glow' : 'text-moonlight/20'}>
                   ★
@@ -212,7 +247,8 @@ export default function QuestionRenderer({ question, currentAnswer, onSave, onSk
                         type="button"
                         onClick={() => move(idx, idx - 1)}
                         disabled={idx === 0}
-                        className="px-2 py-1 bg-nebula rounded hover:bg-void disabled:opacity-20 text-xs"
+                        aria-label={`Move ${option?.label} up`}
+                        className="px-2.5 py-1 bg-nebula rounded hover:bg-void disabled:opacity-20 text-xs cursor-pointer"
                       >
                         ▲
                       </button>
@@ -220,7 +256,8 @@ export default function QuestionRenderer({ question, currentAnswer, onSave, onSk
                         type="button"
                         onClick={() => move(idx, idx + 1)}
                         disabled={idx === currentOrder.length - 1}
-                        className="px-2 py-1 bg-nebula rounded hover:bg-void disabled:opacity-20 text-xs"
+                        aria-label={`Move ${option?.label} down`}
+                        className="px-2.5 py-1 bg-nebula rounded hover:bg-void disabled:opacity-20 text-xs cursor-pointer"
                       >
                         ▼
                       </button>
@@ -238,15 +275,15 @@ export default function QuestionRenderer({ question, currentAnswer, onSave, onSk
         <button
           type="button"
           onClick={onSkip}
-          className="text-xs md:text-sm text-moonlight/40 hover:text-moonlight/80 transition-colors"
+          className="text-xs md:text-sm text-moonlight/40 hover:text-moonlight/80 transition-colors cursor-pointer"
         >
-          Skip for now
+          Skip for now <span className="hidden sm:inline font-mono text-[10px] opacity-40">(Esc)</span>
         </button>
 
         <button
           type="button"
           onClick={handleConfirm}
-          className="px-6 py-2.5 rounded-full bg-moonlight text-void font-medium text-sm hover:bg-amber-glow hover:text-void transition-all duration-200 shadow-lg"
+          className="px-6 py-2.5 rounded-full bg-moonlight text-void font-medium text-sm hover:bg-amber-glow hover:text-void transition-all duration-200 shadow-lg cursor-pointer"
         >
           {val !== null && val !== undefined && val !== '' ? 'Continue →' : 'Next →'}
         </button>

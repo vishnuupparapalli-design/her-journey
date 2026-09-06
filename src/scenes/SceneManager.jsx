@@ -2,6 +2,7 @@ import React, { Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
 import CameraRig from './CameraRig';
 import EffectManager from '../effects/EffectManager';
+import { useDeviceTier } from '../hooks/useDeviceTier';
 
 // All 14 Chapter Worlds
 import ArrivalScene from './chapters/ArrivalScene';
@@ -19,7 +20,10 @@ import BuildingScene from './chapters/BuildingScene';
 import WeatheringScene from './chapters/WeatheringScene';
 import WhatsAheadScene from './chapters/WhatsAheadScene';
 
-export default function SceneManager({ chapterId = 'arrival', chapterOrder = 1 }) {
+export default function SceneManager({ chapterId = 'arrival', chapterOrder = 1, reducedMotion = false }) {
+  const { isLowTier, prefersReducedMotion } = useDeviceTier();
+  const shouldReduceMotion = reducedMotion || prefersReducedMotion;
+
   const renderWorld = () => {
     switch (chapterId) {
       case 'reflections':
@@ -58,10 +62,15 @@ export default function SceneManager({ chapterId = 'arrival', chapterOrder = 1 }
     <div className="fixed inset-0 z-0 pointer-events-auto overflow-hidden bg-void">
       <Canvas
         camera={{ position: [0, 0, 7], fov: 50 }}
-        gl={{ antialias: true, alpha: false }}
-        dpr={[1, 2]}
+        gl={{
+          antialias: !isLowTier, // Disable heavy antialias on low-tier mobile to save battery
+          alpha: false,
+          powerPreference: 'high-performance',
+        }}
+        dpr={isLowTier ? 1 : [1, 1.75]} // Adaptive pixel ratio
       >
-        <CameraRig chapterOrder={chapterOrder} />
+        {/* Adaptive Camera Rig */}
+        <CameraRig chapterOrder={chapterOrder} reducedMotion={shouldReduceMotion} />
         
         {/* 3D Centralized Effect System */}
         <EffectManager />

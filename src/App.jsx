@@ -40,6 +40,7 @@ function JourneyExperience() {
   const [showRestartModal, setShowRestartModal] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isMuted, setIsMuted] = useState(audioManager.isMuted);
+  const [reducedMotion, setReducedMotion] = useState(false);
 
   useEffect(() => {
     async function restoreSession() {
@@ -154,11 +155,14 @@ function JourneyExperience() {
 
   return (
     <main className="min-h-screen relative overflow-hidden bg-void text-moonlight select-none">
+      {/* 3D Background Universe */}
       <SceneManager
         chapterId={chapter.id}
         chapterOrder={chapter.order}
+        reducedMotion={reducedMotion}
       />
 
+      {/* UI Overlay */}
       <div className="relative z-10 min-h-screen flex flex-col justify-between p-6 md:p-10 pointer-events-none">
         {welcomeCheckpoint && (
           <div className="pointer-events-auto">
@@ -259,7 +263,17 @@ function JourneyExperience() {
             ← Previous
           </button>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
+            {/* Reduced Motion Toggle */}
+            <button
+              onClick={() => setReducedMotion(!reducedMotion)}
+              className="hover:text-amber-glow transition-colors cursor-pointer text-[11px] font-mono"
+            >
+              {reducedMotion ? 'Motion: Still' : 'Motion: Fluid'}
+            </button>
+
+            <span className="text-moonlight/20">·</span>
+
             <button
               onClick={() => setShowRestartModal(true)}
               className="hover:text-amber-glow transition-colors cursor-pointer"
@@ -298,7 +312,6 @@ function AdminPortal() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
-          // Check if admin
           const { data } = await supabase
             .from('admins')
             .select('user_id')
