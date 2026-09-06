@@ -5,6 +5,7 @@ import QuestionRenderer from './components/QuestionRenderer';
 import IdentityGate from './components/IdentityGate';
 import WelcomeBack from './components/WelcomeBack';
 import RestartModal from './components/RestartModal';
+import SceneManager from './scenes/SceneManager';
 import { authenticateWithPassphrase, getCurrentRespondent, signOutRespondent } from './services/auth';
 import { fetchRespondentAnswers } from './services/answers';
 import { fetchProgressFromCloud } from './services/progress';
@@ -34,7 +35,6 @@ function JourneyExperience() {
   const [welcomeCheckpoint, setWelcomeCheckpoint] = useState(null);
   const [showRestartModal, setShowRestartModal] = useState(false);
 
-  // Check if session exists on load
   useEffect(() => {
     async function restoreSession() {
       try {
@@ -47,7 +47,6 @@ function JourneyExperience() {
           ]);
           setInitialAnswers(cloudAnswers);
 
-          // If she had already answered at least 1 question, show Welcome Back!
           if (progress && progress.current_question_order > 1) {
             setWelcomeCheckpoint(progress);
           } else if (progress) {
@@ -134,127 +133,134 @@ function JourneyExperience() {
   };
 
   return (
-    <main className="min-h-screen flex flex-col justify-between p-6 md:p-10 relative overflow-hidden bg-void">
-      {/* Welcome Back Card */}
-      {welcomeCheckpoint && (
-        <WelcomeBack
-          displayName={respondent.displayName}
-          chapterTitle={chapter.title}
-          questionNumber={welcomeCheckpoint.current_question_order}
-          onResume={handleResumeCheckpoint}
-          onStartOver={handleStartOverFromWelcome}
-        />
-      )}
-
-      {/* Restart Modal */}
-      <RestartModal
-        isOpen={showRestartModal}
-        onClose={() => setShowRestartModal(false)}
-        onConfirm={handleConfirmRestart}
+    <main className="min-h-screen relative overflow-hidden bg-void text-moonlight select-none">
+      {/* 1. THE 3D BACKGROUND WORLD */}
+      <SceneManager
+        chapterId={chapter.id}
+        chapterOrder={chapter.order}
       />
 
-      {/* Atmospheric Background Glow */}
-      <div
-        className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full blur-3xl opacity-20 pointer-events-none transition-colors duration-1000"
-        style={{ backgroundColor: chapter.color }}
-      />
-
-      {/* Top HUD */}
-      <header className="relative z-10 flex items-center justify-between max-w-4xl mx-auto w-full">
-        <div>
-          <span
-            className="text-xs tracking-widest uppercase font-mono transition-colors duration-500"
-            style={{ color: chapter.color }}
-          >
-            Chapter {chapter.order} · {chapter.subtitle}
-          </span>
-          <h1 className="text-xl md:text-2xl font-serif font-light text-moonlight">
-            {chapter.title}
-          </h1>
-        </div>
-
-        <div className="flex items-center gap-4 text-right">
-          {/* Cloud Save Status Dot */}
-          <div className="flex items-center gap-1.5 text-[11px] font-mono text-moonlight/40">
-            <span
-              className={`w-2 h-2 rounded-full ${
-                saveStatus === 'saving'
-                  ? 'bg-amber-glow animate-ping'
-                  : saveStatus === 'offline'
-                  ? 'bg-amber-glow/60'
-                  : 'bg-sage-mist'
-              }`}
+      {/* 2. THE UI OVERLAY (Floats on top of 3D Canvas) */}
+      <div className="relative z-10 min-h-screen flex flex-col justify-between p-6 md:p-10 pointer-events-none">
+        {/* Welcome Back Card */}
+        {welcomeCheckpoint && (
+          <div className="pointer-events-auto">
+            <WelcomeBack
+              displayName={respondent.displayName}
+              chapterTitle={chapter.title}
+              questionNumber={welcomeCheckpoint.current_question_order}
+              onResume={handleResumeCheckpoint}
+              onStartOver={handleStartOverFromWelcome}
             />
-            <span className="hidden sm:inline">
-              {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'offline' ? 'Offline' : 'Saved'}
-            </span>
-          </div>
-
-          <div>
-            <span className="text-xs font-mono text-moonlight/40">
-              {currentIndex + 1} of {total}
-            </span>
-            <div className="w-20 md:w-32 h-1 bg-moonlight/10 rounded-full mt-1 overflow-hidden">
-              <div
-                className="h-full bg-amber-glow transition-all duration-300 rounded-full"
-                style={{ width: `${((currentIndex + 1) / total) * 100}%` }}
-              />
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Question Surface */}
-      <div className="relative z-10 my-auto py-8">
-        {currentQ ? (
-          <QuestionRenderer
-            question={currentQ}
-            currentAnswer={existingAnswer}
-            onSave={handleSave}
-            onSkip={skipQuestion}
-          />
-        ) : (
-          <div className="text-center space-y-4">
-            <h2 className="text-3xl font-serif text-moonlight">End of Preview</h2>
-            <p className="text-moonlight/60">All sample questions answered and saved!</p>
           </div>
         )}
-      </div>
 
-      {/* Bottom Footer Controls */}
-      <footer className="relative z-10 flex items-center justify-between max-w-4xl mx-auto w-full text-xs text-moonlight/40">
-        <button
-          onClick={prevQuestion}
-          disabled={currentIndex === 0}
-          className="hover:text-moonlight disabled:opacity-20 transition-colors cursor-pointer"
-        >
-          ← Previous
-        </button>
-
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => setShowRestartModal(true)}
-            className="hover:text-amber-glow transition-colors cursor-pointer"
-          >
-            Start over
-          </button>
-
-          <span className="text-moonlight/30">·</span>
-
-          <button
-            onClick={handleSignOut}
-            className="hover:text-amber-glow transition-colors cursor-pointer"
-          >
-            Switch traveler
-          </button>
-
-          <span className="text-moonlight/30">·</span>
-
-          <Link to="/admin" className="hover:text-amber-glow transition-colors">
-            Admin →
-          </Link>
+        {/* Restart Modal */}
+        <div className="pointer-events-auto">
+          <RestartModal
+            isOpen={showRestartModal}
+            onClose={() => setShowRestartModal(false)}
+            onConfirm={handleConfirmRestart}
+          />
         </div>
-      </footer>
+
+        {/* Top HUD */}
+        <header className="flex items-center justify-between max-w-4xl mx-auto w-full pointer-events-auto">
+          <div>
+            <span
+              className="text-xs tracking-widest uppercase font-mono transition-colors duration-500"
+              style={{ color: chapter.color }}
+            >
+              Chapter {chapter.order} · {chapter.subtitle}
+            </span>
+            <h1 className="text-xl md:text-2xl font-serif font-light text-moonlight drop-shadow-md">
+              {chapter.title}
+            </h1>
+          </div>
+
+          <div className="flex items-center gap-4 text-right">
+            {/* Cloud Save Dot */}
+            <div className="flex items-center gap-1.5 text-[11px] font-mono text-moonlight/60 bg-void/40 backdrop-blur-md px-3 py-1 rounded-full border border-moonlight/10">
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  saveStatus === 'saving'
+                    ? 'bg-amber-glow animate-ping'
+                    : saveStatus === 'offline'
+                    ? 'bg-amber-glow/60'
+                    : 'bg-sage-mist'
+                }`}
+              />
+              <span className="hidden sm:inline">
+                {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'offline' ? 'Offline' : 'Saved'}
+              </span>
+            </div>
+
+            <div>
+              <span className="text-xs font-mono text-moonlight/50">
+                {currentIndex + 1} of {total}
+              </span>
+              <div className="w-20 md:w-32 h-1 bg-moonlight/15 rounded-full mt-1 overflow-hidden">
+                <div
+                  className="h-full bg-amber-glow transition-all duration-300 rounded-full shadow-[0_0_8px_#E8A857]"
+                  style={{ width: `${((currentIndex + 1) / total) * 100}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Question Surface (Card is interactive) */}
+        <div className="my-auto py-8 pointer-events-auto">
+          {currentQ ? (
+            <QuestionRenderer
+              question={currentQ}
+              currentAnswer={existingAnswer}
+              onSave={handleSave}
+              onSkip={skipQuestion}
+            />
+          ) : (
+            <div className="text-center space-y-4 max-w-md mx-auto p-8 rounded-3xl bg-nebula/60 backdrop-blur-xl border border-moonlight/10">
+              <h2 className="text-3xl font-serif text-moonlight">End of Journey Preview</h2>
+              <p className="text-moonlight/60 text-sm">All questions answered.</p>
+            </div>
+          )}
+        </div>
+
+        {/* Bottom Footer Controls */}
+        <footer className="flex items-center justify-between max-w-4xl mx-auto w-full text-xs text-moonlight/50 pointer-events-auto bg-void/30 backdrop-blur-sm px-4 py-2 rounded-full border border-moonlight/5">
+          <button
+            onClick={prevQuestion}
+            disabled={currentIndex === 0}
+            className="hover:text-moonlight disabled:opacity-20 transition-colors cursor-pointer"
+          >
+            ← Previous
+          </button>
+
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setShowRestartModal(true)}
+              className="hover:text-amber-glow transition-colors cursor-pointer"
+            >
+              Start over
+            </button>
+
+            <span className="text-moonlight/20">·</span>
+
+            <button
+              onClick={handleSignOut}
+              className="hover:text-amber-glow transition-colors cursor-pointer"
+            >
+              Switch traveler
+            </button>
+
+            <span className="text-moonlight/20">·</span>
+
+            <Link to="/admin" className="hover:text-amber-glow transition-colors">
+              Admin →
+            </Link>
+          </div>
+        </footer>
+      </div>
     </main>
   );
 }
@@ -266,7 +272,7 @@ function AdminCheck() {
       <div className="max-w-md w-full p-8 rounded-2xl border border-moonlight/10 bg-void/90 space-y-4 text-left">
         <h2 className="text-2xl font-serif text-moonlight">Admin Route Preview</h2>
         <p className="text-moonlight/60 text-xs">
-          Stage 5 verification: Answers in memory:
+          Stage 6 verification: Answers in memory:
         </p>
         <pre className="p-3 bg-void rounded-lg text-xs font-mono text-amber-glow overflow-x-auto max-h-48 border border-moonlight/10">
           {JSON.stringify(answers, null, 2)}
