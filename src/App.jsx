@@ -3,14 +3,18 @@ import { Routes, Route, Link } from 'react-router-dom';
 import { useJourneyStore } from './state/useJourneyStore';
 import QuestionRenderer from './components/QuestionRenderer';
 import IdentityGate from './components/IdentityGate';
+import WelcomeBack from './components/WelcomeBack';
+import RestartModal from './components/RestartModal';
 import { authenticateWithPassphrase, getCurrentRespondent, signOutRespondent } from './services/auth';
 import { fetchRespondentAnswers } from './services/answers';
+import { fetchProgressFromCloud } from './services/progress';
 
 function JourneyExperience() {
   const {
     respondent,
     setRespondent,
     setInitialAnswers,
+    setCloudProgress,
     currentIndex,
     getCurrentQuestion,
     getTotalQuestions,
@@ -20,22 +24,35 @@ function JourneyExperience() {
     nextQuestion,
     prevQuestion,
     skipQuestion,
+    restartJourney,
     saveStatus,
     syncOfflineAnswers,
   } = useJourneyStore();
 
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [authError, setAuthError] = useState('');
+  const [welcomeCheckpoint, setWelcomeCheckpoint] = useState(null);
+  const [showRestartModal, setShowRestartModal] = useState(false);
 
-  // Check if already signed in on load
+  // Check if session exists on load
   useEffect(() => {
-    async function checkAuth() {
+    async function restoreSession() {
       try {
         const active = await getCurrentRespondent();
         if (active) {
           setRespondent(active);
-          const cloudAnswers = await fetchRespondentAnswers(active.user.id);
+          const [cloudAnswers, progress] = await Promise.all([
+            fetchRespondentAnswers(active.user.id),
+            fetchProgressFromCloud(active.user.id),
+          ]);
           setInitialAnswers(cloudAnswers);
+
+          // If she had already answered at least 1 question, show Welcome Back!
+          if (progress && progress.current_question_order > 1) {
+            setWelcomeCheckpoint(progress);
+          } else if (progress) {
+            setCloudProgress(progress);
+          }
         }
       } catch (e) {
         console.error('Session restore error:', e);
@@ -43,12 +60,9 @@ function JourneyExperience() {
         setIsLoadingAuth(false);
       }
     }
-    checkAuth();
+    restoreSession();
 
-    // Listen for online event to flush offline queue
-    const handleOnline = () => {
-      syncOfflineAnswers();
-    };
+    const handleOnline = () => syncOfflineAnswers();
     window.addEventListener('online', handleOnline);
     return () => window.removeEventListener('online', handleOnline);
   }, []);
@@ -59,8 +73,17 @@ function JourneyExperience() {
     try {
       const authenticated = await authenticateWithPassphrase(name, passphrase);
       setRespondent(authenticated);
-      const cloudAnswers = await fetchRespondentAnswers(authenticated.user.id);
+      const [cloudAnswers, progress] = await Promise.all([
+        fetchRespondentAnswers(authenticated.user.id),
+        fetchProgressFromCloud(authenticated.user.id),
+      ]);
       setInitialAnswers(cloudAnswers);
+
+      if (progress && progress.current_question_order > 1) {
+        setWelcomeCheckpoint(progress);
+      } else if (progress) {
+        setCloudProgress(progress);
+      }
     } catch (err) {
       setAuthError(err.message || 'Could not enter. Please check your credentials.');
     } finally {
@@ -68,12 +91,28 @@ function JourneyExperience() {
     }
   };
 
+  const handleResumeCheckpoint = () => {
+    if (welcomeCheckpoint) {
+      setCloudProgress(welcomeCheckpoint);
+      setWelcomeCheckpoint(null);
+    }
+  };
+
+  const handleStartOverFromWelcome = async () => {
+    setWelcomeCheckpoint(null);
+    await restartJourney(false);
+  };
+
+  const handleConfirmRestart = async (clearAnswers) => {
+    setShowRestartModal(false);
+    await restartJourney(clearAnswers);
+  };
+
   const handleSignOut = async () => {
     await signOutRespondent();
     setRespondent(null);
   };
 
-  // If not signed in, show the Identity Gate
   if (!respondent) {
     return (
       <IdentityGate
@@ -96,7 +135,25 @@ function JourneyExperience() {
 
   return (
     <main className="min-h-screen flex flex-col justify-between p-6 md:p-10 relative overflow-hidden bg-void">
-      {/* Background Glow */}
+      {/* Welcome Back Card */}
+      {welcomeCheckpoint && (
+        <WelcomeBack
+          displayName={respondent.displayName}
+          chapterTitle={chapter.title}
+          questionNumber={welcomeCheckpoint.current_question_order}
+          onResume={handleResumeCheckpoint}
+          onStartOver={handleStartOverFromWelcome}
+        />
+      )}
+
+      {/* Restart Modal */}
+      <RestartModal
+        isOpen={showRestartModal}
+        onClose={() => setShowRestartModal(false)}
+        onConfirm={handleConfirmRestart}
+      />
+
+      {/* Atmospheric Background Glow */}
       <div
         className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full blur-3xl opacity-20 pointer-events-none transition-colors duration-1000"
         style={{ backgroundColor: chapter.color }}
@@ -117,7 +174,7 @@ function JourneyExperience() {
         </div>
 
         <div className="flex items-center gap-4 text-right">
-          {/* Cloud Save Indicator */}
+          {/* Cloud Save Status Dot */}
           <div className="flex items-center gap-1.5 text-[11px] font-mono text-moonlight/40">
             <span
               className={`w-2 h-2 rounded-full ${
@@ -129,7 +186,7 @@ function JourneyExperience() {
               }`}
             />
             <span className="hidden sm:inline">
-              {saveStatus === 'saving' ? 'Saving to cloud…' : saveStatus === 'offline' ? 'Offline (Queued)' : 'Saved'}
+              {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'offline' ? 'Offline' : 'Saved'}
             </span>
           </div>
 
@@ -159,33 +216,42 @@ function JourneyExperience() {
         ) : (
           <div className="text-center space-y-4">
             <h2 className="text-3xl font-serif text-moonlight">End of Preview</h2>
-            <p className="text-moonlight/60">All questions answered and permanently saved in Supabase!</p>
+            <p className="text-moonlight/60">All sample questions answered and saved!</p>
           </div>
         )}
       </div>
 
-      {/* Bottom Controls */}
+      {/* Bottom Footer Controls */}
       <footer className="relative z-10 flex items-center justify-between max-w-4xl mx-auto w-full text-xs text-moonlight/40">
         <button
           onClick={prevQuestion}
           disabled={currentIndex === 0}
-          className="hover:text-moonlight disabled:opacity-20 transition-colors"
+          className="hover:text-moonlight disabled:opacity-20 transition-colors cursor-pointer"
         >
           ← Previous
         </button>
 
         <div className="flex items-center gap-4">
-          <span className="text-moonlight/50 font-sans">
-            Welcome, {respondent.displayName}
-          </span>
+          <button
+            onClick={() => setShowRestartModal(true)}
+            className="hover:text-amber-glow transition-colors cursor-pointer"
+          >
+            Start over
+          </button>
+
+          <span className="text-moonlight/30">·</span>
+
           <button
             onClick={handleSignOut}
-            className="hover:text-amber-glow transition-colors"
+            className="hover:text-amber-glow transition-colors cursor-pointer"
           >
-            Change Passphrase
+            Switch traveler
           </button>
+
+          <span className="text-moonlight/30">·</span>
+
           <Link to="/admin" className="hover:text-amber-glow transition-colors">
-            Admin View →
+            Admin →
           </Link>
         </div>
       </footer>
@@ -200,7 +266,7 @@ function AdminCheck() {
       <div className="max-w-md w-full p-8 rounded-2xl border border-moonlight/10 bg-void/90 space-y-4 text-left">
         <h2 className="text-2xl font-serif text-moonlight">Admin Route Preview</h2>
         <p className="text-moonlight/60 text-xs">
-          Stage 4 verification: Answers currently synced in local memory:
+          Stage 5 verification: Answers in memory:
         </p>
         <pre className="p-3 bg-void rounded-lg text-xs font-mono text-amber-glow overflow-x-auto max-h-48 border border-moonlight/10">
           {JSON.stringify(answers, null, 2)}

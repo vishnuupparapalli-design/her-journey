@@ -2,15 +2,17 @@ import { create } from 'zustand';
 import { questions } from '../data/questions';
 import { chapters } from '../data/chapters';
 import { saveAnswerToCloud } from '../services/answers';
+import { saveProgressToCloud, resetProgressInCloud } from '../services/progress';
 import { addToQueue, flushOfflineQueue } from './useOfflineQueue';
 
 export const useJourneyStore = create((set, get) => ({
   // Respondent / Session State
-  respondent: null, // { user, displayName }
-  saveStatus: 'saved', // 'idle' | 'saving' | 'saved' | 'offline'
+  respondent: null,
+  saveStatus: 'saved',
 
   // Navigation State
   currentIndex: 0,
+  completedQuestions: [],
   answers: {},
 
   // Getters
@@ -21,11 +23,19 @@ export const useJourneyStore = create((set, get) => ({
     return chapters.find((c) => c.id === q?.chapterId) || chapters[0];
   },
 
-  // Set respondent after authentication
   setRespondent: (respondent) => set({ respondent }),
-
-  // Set answers initially fetched from cloud
   setInitialAnswers: (answersMap) => set({ answers: answersMap }),
+
+  // Set position from cloud checkpoint
+  setCloudProgress: (progressRow) => {
+    if (!progressRow) return;
+    const targetOrder = progressRow.current_question_order || 1;
+    const targetIdx = Math.max(0, Math.min(questions.length - 1, targetOrder - 1));
+    set({
+      currentIndex: targetIdx,
+      completedQuestions: progressRow.completed_question_ids || [],
+    });
+  },
 
   // Save answer to local state + Cloud + Offline Queue
   setAnswer: async (questionId, value) => {
@@ -34,7 +44,8 @@ export const useJourneyStore = create((set, get) => ({
     const chapterId = currentQ?.chapterId || 'arrival';
     const answerType = currentQ?.type || 'unknown';
 
-    // 1. Optimistic instant local update
+    // 1. Local update
+    const updatedCompleted = Array.from(new Set([...state.completedQuestions, questionId]));
     set((s) => ({
       answers: {
         ...s.answers,
@@ -43,10 +54,11 @@ export const useJourneyStore = create((set, get) => ({
           answeredAt: new Date().toISOString(),
         },
       },
+      completedQuestions: updatedCompleted,
       saveStatus: 'saving',
     }));
 
-    // 2. Cloud Save (if signed in)
+    // 2. Cloud Save
     if (state.respondent?.user?.id) {
       const payload = {
         respondentId: state.respondent.user.id,
@@ -60,7 +72,7 @@ export const useJourneyStore = create((set, get) => ({
         await saveAnswerToCloud(payload);
         set({ saveStatus: 'saved' });
       } catch (err) {
-        console.warn('Network error saving to cloud. Queueing offline:', err);
+        console.warn('Network error saving answer. Queued offline:', err);
         addToQueue(payload);
         set({ saveStatus: 'offline' });
       }
@@ -70,9 +82,21 @@ export const useJourneyStore = create((set, get) => ({
   },
 
   nextQuestion: () => {
-    const { currentIndex } = get();
+    const { currentIndex, respondent, completedQuestions } = get();
     if (currentIndex < questions.length - 1) {
-      set({ currentIndex: currentIndex + 1 });
+      const nextIdx = currentIndex + 1;
+      set({ currentIndex: nextIdx });
+
+      // Automatically save progress checkpoint to Supabase
+      if (respondent?.user?.id) {
+        const nextQ = questions[nextIdx];
+        saveProgressToCloud({
+          respondentId: respondent.user.id,
+          currentChapterId: nextQ?.chapterId || 'arrival',
+          currentQuestionOrder: nextIdx + 1,
+          completedQuestionIds: completedQuestions,
+        });
+      }
     }
   },
 
@@ -85,6 +109,19 @@ export const useJourneyStore = create((set, get) => ({
 
   skipQuestion: () => {
     get().nextQuestion();
+  },
+
+  restartJourney: async (clearAnswers = false) => {
+    const { respondent } = get();
+    set({
+      currentIndex: 0,
+      completedQuestions: [],
+      ...(clearAnswers ? { answers: {} } : {}),
+    });
+
+    if (respondent?.user?.id) {
+      await resetProgressInCloud(respondent.user.id, clearAnswers);
+    }
   },
 
   syncOfflineAnswers: async () => {
