@@ -6,6 +6,7 @@ import IdentityGate from './components/IdentityGate';
 import WelcomeBack from './components/WelcomeBack';
 import RestartModal from './components/RestartModal';
 import SceneManager from './scenes/SceneManager';
+import CinematicEnding from './components/CinematicEnding';
 import AdminLogin from './admin/AdminLogin';
 import Dashboard from './admin/Dashboard';
 import { authenticateWithPassphrase, getCurrentRespondent, signOutRespondent } from './services/auth';
@@ -41,6 +42,7 @@ function JourneyExperience() {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isMuted, setIsMuted] = useState(audioManager.isMuted);
   const [reducedMotion, setReducedMotion] = useState(false);
+  const [isCompleted, setIsCompleted] = useState(false);
 
   useEffect(() => {
     async function restoreSession() {
@@ -54,7 +56,9 @@ function JourneyExperience() {
           ]);
           setInitialAnswers(cloudAnswers);
 
-          if (progress && progress.current_question_order > 1) {
+          if (progress?.completed_at) {
+            setIsCompleted(true);
+          } else if (progress && progress.current_question_order > 1) {
             setWelcomeCheckpoint(progress);
           } else if (progress) {
             setCloudProgress(progress);
@@ -86,7 +90,9 @@ function JourneyExperience() {
       ]);
       setInitialAnswers(cloudAnswers);
 
-      if (progress && progress.current_question_order > 1) {
+      if (progress?.completed_at) {
+        setIsCompleted(true);
+      } else if (progress && progress.current_question_order > 1) {
         setWelcomeCheckpoint(progress);
       } else if (progress) {
         setCloudProgress(progress);
@@ -109,17 +115,20 @@ function JourneyExperience() {
   const handleStartOverFromWelcome = async () => {
     audioManager.init();
     setWelcomeCheckpoint(null);
+    setIsCompleted(false);
     await restartJourney(false);
   };
 
   const handleConfirmRestart = async (clearAnswers) => {
     setShowRestartModal(false);
+    setIsCompleted(false);
     await restartJourney(clearAnswers);
   };
 
   const handleSignOut = async () => {
     await signOutRespondent();
     setRespondent(null);
+    setIsCompleted(false);
   };
 
   const toggleSound = () => {
@@ -142,27 +151,42 @@ function JourneyExperience() {
   const chapter = getCurrentChapter();
   const existingAnswer = currentQ ? answers[currentQ.id] : null;
 
+  // On answer: Play chime, trigger effect, advance or complete
   const handleSave = async (questionId, value) => {
     audioManager.playAnswerChime();
     setIsTransitioning(true);
     await setAnswer(questionId, value);
     
-    setTimeout(() => {
-      nextQuestion();
+    setTimeout(async () => {
+      if (currentIndex >= total - 1) {
+        // Grand finale triggered!
+        setIsCompleted(true);
+        if (respondent?.user?.id) {
+          await supabase
+            .from('progress')
+            .update({ completed_at: new Date().toISOString() })
+            .eq('respondent_id', respondent.user.id);
+        }
+      } else {
+        nextQuestion();
+      }
       setIsTransitioning(false);
     }, 700);
   };
 
+  // If completed, render the Final Cinematic Ending!
+  if (isCompleted) {
+    return <CinematicEnding onRevisit={() => setIsCompleted(false)} />;
+  }
+
   return (
     <main className="min-h-screen relative overflow-hidden bg-void text-moonlight select-none">
-      {/* 3D Background Universe */}
       <SceneManager
         chapterId={chapter.id}
         chapterOrder={chapter.order}
         reducedMotion={reducedMotion}
       />
 
-      {/* UI Overlay */}
       <div className="relative z-10 min-h-screen flex flex-col justify-between p-6 md:p-10 pointer-events-none">
         {welcomeCheckpoint && (
           <div className="pointer-events-auto">
@@ -238,18 +262,13 @@ function JourneyExperience() {
 
         {/* Question Surface */}
         <div className={`my-auto py-8 pointer-events-auto transition-opacity duration-300 ${isTransitioning ? 'opacity-70 scale-[0.99]' : 'opacity-100 scale-100'}`}>
-          {currentQ ? (
+          {currentQ && (
             <QuestionRenderer
               question={currentQ}
               currentAnswer={existingAnswer}
               onSave={handleSave}
               onSkip={skipQuestion}
             />
-          ) : (
-            <div className="text-center space-y-4 max-w-md mx-auto p-8 rounded-3xl bg-nebula/60 backdrop-blur-xl border border-moonlight/10">
-              <h2 className="text-3xl font-serif text-moonlight">End of Journey Preview</h2>
-              <p className="text-moonlight/60 text-sm">All questions answered.</p>
-            </div>
           )}
         </div>
 
@@ -264,7 +283,6 @@ function JourneyExperience() {
           </button>
 
           <div className="flex items-center gap-3 sm:gap-4">
-            {/* Reduced Motion Toggle */}
             <button
               onClick={() => setReducedMotion(!reducedMotion)}
               className="hover:text-amber-glow transition-colors cursor-pointer text-[11px] font-mono"
