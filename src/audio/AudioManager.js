@@ -1,6 +1,6 @@
 /**
  * Master Audio Manager for "A Universe For Her"
- * Optimized with smooth attack/decay curves to eliminate mobile speaker popping.
+ * Uses pre-rendered high-definition crystal chime buffers for crystal-clear, loud, crack-free mobile audio.
  */
 
 const STORAGE_MUTE_KEY = 'journey_audio_muted';
@@ -10,12 +10,11 @@ class AudioManager {
     this.ctx = null;
     this.isMuted = localStorage.getItem(STORAGE_MUTE_KEY) === 'true';
     this.unlocked = false;
-    this.ambientGain = null;
-    this.ambientOscillator = null;
+    this.chimeBuffers = [];
   }
 
   init() {
-    if (this.unlocked) return;
+    if (this.unlocked && this.ctx) return;
     try {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       if (AudioContext) {
@@ -24,113 +23,86 @@ class AudioManager {
           this.ctx.resume();
         }
         this.unlocked = true;
-        this.startAmbientDrone();
+        // Pre-bake our studio crystal bell chimes into memory
+        this.generateStudioChimes();
       }
     } catch (e) {
-      console.warn('Web Audio not initialized:', e);
+      console.warn('Audio init error:', e);
     }
+  }
+
+  // Pre-bakes 3 rich, crystal-clear, harmonic bell chime buffers
+  generateStudioChimes() {
+    if (!this.ctx || this.chimeBuffers.length > 0) return;
+
+    const sampleRate = this.ctx.sampleRate;
+    const duration = 1.8; // 1.8 seconds of natural harmonic ring
+    const frequencies = [659.25, 880.0, 1046.5]; // E5, A5, C6 (Celestial Chord)
+
+    frequencies.forEach((baseFreq) => {
+      const frameCount = Math.floor(sampleRate * duration);
+      const buffer = this.ctx.createBuffer(1, frameCount, sampleRate);
+      const data = buffer.getChannelData(0);
+
+      for (let i = 0; i < frameCount; i++) {
+        const t = i / sampleRate;
+
+        // Rich harmonic overtones (Fundamental + 2nd Octave + Shimmering 3rd)
+        const fundamental = Math.sin(2 * Math.PI * baseFreq * t) * 0.55;
+        const secondHarmonic = Math.sin(2 * Math.PI * baseFreq * 2.01 * t) * 0.25;
+        const shimmer = Math.sin(2 * Math.PI * baseFreq * 3.02 * t) * 0.15;
+
+        // Pure organic bell decay (exponential fade to silence)
+        const decay = Math.exp(-3.2 * t);
+
+        // Smooth 15ms zero-crossing attack (Guarantees 0 clicks or cracks on mobile!)
+        const attack = Math.min(1, t / 0.015);
+
+        // Full, rich, clear volume (0.75 amplitude)
+        data[i] = (fundamental + secondHarmonic + shimmer) * decay * attack * 0.75;
+      }
+
+      this.chimeBuffers.push(buffer);
+    });
   }
 
   toggleMute() {
     this.isMuted = !this.isMuted;
     localStorage.setItem(STORAGE_MUTE_KEY, String(this.isMuted));
-
-    if (this.ambientGain && this.ctx) {
-      const targetGain = this.isMuted ? 0 : 0.02;
-      this.ambientGain.gain.setTargetAtTime(targetGain, this.ctx.currentTime, 0.2);
-    }
-
     return this.isMuted;
   }
 
-  // Pure, silky celestial wind chime (Engineered specifically for phone speakers)
+  // Plays a loud, crystal-clear celestial starlight chime with ZERO lag or popping
   playAnswerChime() {
     if (this.isMuted || !this.ctx) return;
     try {
-      if (this.ctx.state === 'suspended') this.ctx.resume();
+      if (this.ctx.state === 'suspended') {
+        this.ctx.resume();
+      }
 
-      const now = this.ctx.currentTime;
-      // Warm, crystalline harmonic frequencies
-      const freqs = [523.25, 659.25, 783.99, 1046.5];
-      const freq = freqs[Math.floor(Math.random() * freqs.length)];
+      // If buffers haven't generated yet, generate now
+      if (this.chimeBuffers.length === 0) {
+        this.generateStudioChimes();
+      }
 
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-      const filter = this.ctx.createBiquadFilter();
+      if (this.chimeBuffers.length === 0) return;
 
-      // Soft lowpass filter to remove harsh phone distortion
-      filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(2200, now);
+      // Pick one of the harmonic chimes
+      const buffer = this.chimeBuffers[Math.floor(Math.random() * this.chimeBuffers.length)];
+      const source = this.ctx.createBufferSource();
+      const gainNode = this.ctx.createGain();
 
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, now);
-      osc.frequency.exponentialRampToValueAtTime(freq * 1.3, now + 0.8);
+      source.buffer = buffer;
 
-      // SILKY ATTACK CURVE: Starts at 0.0001, fades up smoothly in 35ms (No clicks/cracks!)
-      gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(0.045, now + 0.035);
-      // Soft exponential decay
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.95);
-      gain.gain.linearRampToValueAtTime(0, now + 1.0);
+      // Full, satisfying, clear volume
+      gainNode.gain.setValueAtTime(0.85, this.ctx.currentTime);
 
-      // Connect nodes: Oscillator -> Filter -> Gain -> Speakers
-      osc.connect(filter);
-      filter.connect(gain);
-      gain.connect(this.ctx.destination);
+      source.connect(gainNode);
+      gainNode.connect(this.ctx.destination);
 
-      osc.start(now);
-      osc.stop(now + 1.05);
+      source.start(0);
     } catch (e) {
-      console.warn('Chime error:', e);
-    }
-  }
-
-  // Soft Chapter Swell
-  playChapterSwell() {
-    if (this.isMuted || !this.ctx) return;
-    try {
-      if (this.ctx.state === 'suspended') this.ctx.resume();
-
-      const now = this.ctx.currentTime;
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(220, now);
-      osc.frequency.exponentialRampToValueAtTime(330, now + 1.2);
-
-      gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(0.03, now + 0.05);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.2);
-
-      osc.connect(gain);
-      gain.connect(this.ctx.destination);
-
-      osc.start(now);
-      osc.stop(now + 1.25);
-    } catch (e) {
-      console.warn('Swell error:', e);
-    }
-  }
-
-  // Gentle, warm ambient tone (softened for mobile)
-  startAmbientDrone() {
-    if (!this.ctx || this.ambientOscillator) return;
-    try {
-      this.ambientOscillator = this.ctx.createOscillator();
-      this.ambientGain = this.ctx.createGain();
-
-      this.ambientOscillator.type = 'sine';
-      this.ambientOscillator.frequency.setValueAtTime(164.81, this.ctx.currentTime); // E3 warm tone
-
-      this.ambientGain.gain.setValueAtTime(this.isMuted ? 0 : 0.02, this.ctx.currentTime);
-
-      this.ambientOscillator.connect(this.ambientGain);
-      this.ambientGain.connect(this.ctx.destination);
-
-      this.ambientOscillator.start();
-    } catch (e) {
-      console.warn('Ambient drone error:', e);
+      console.warn('Chime playback error:', e);
     }
   }
 }
