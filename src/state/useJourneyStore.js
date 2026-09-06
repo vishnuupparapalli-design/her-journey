@@ -4,8 +4,12 @@ import { chapters } from '../data/chapters';
 import { saveAnswerToCloud } from '../services/answers';
 import { saveProgressToCloud, resetProgressInCloud } from '../services/progress';
 import { addToQueue, flushOfflineQueue } from './useOfflineQueue';
+import { EFFECT_REGISTRY } from '../effects/registry';
 
 export const useJourneyStore = create((set, get) => ({
+  // Active 3D Effect
+  activeEffect: null,
+
   // Respondent / Session State
   respondent: null,
   saveStatus: 'saved',
@@ -23,10 +27,17 @@ export const useJourneyStore = create((set, get) => ({
     return chapters.find((c) => c.id === q?.chapterId) || chapters[0];
   },
 
+  // Trigger an effect by ID from registry
+  triggerEffect: (effectId) => {
+    const effect = EFFECT_REGISTRY[effectId] || EFFECT_REGISTRY.particle_burst;
+    set({ activeEffect: effect });
+  },
+
+  clearActiveEffect: () => set({ activeEffect: null }),
+
   setRespondent: (respondent) => set({ respondent }),
   setInitialAnswers: (answersMap) => set({ answers: answersMap }),
 
-  // Set position from cloud checkpoint
   setCloudProgress: (progressRow) => {
     if (!progressRow) return;
     const targetOrder = progressRow.current_question_order || 1;
@@ -37,14 +48,20 @@ export const useJourneyStore = create((set, get) => ({
     });
   },
 
-  // Save answer to local state + Cloud + Offline Queue
   setAnswer: async (questionId, value) => {
     const state = get();
     const currentQ = state.getCurrentQuestion();
     const chapterId = currentQ?.chapterId || 'arrival';
     const answerType = currentQ?.type || 'unknown';
 
-    // 1. Local update
+    // 1. Play the question's registered 3D effect!
+    if (currentQ?.effect) {
+      state.triggerEffect(currentQ.effect);
+    } else {
+      state.triggerEffect('particle_burst');
+    }
+
+    // 2. Local state update
     const updatedCompleted = Array.from(new Set([...state.completedQuestions, questionId]));
     set((s) => ({
       answers: {
@@ -58,7 +75,7 @@ export const useJourneyStore = create((set, get) => ({
       saveStatus: 'saving',
     }));
 
-    // 2. Cloud Save
+    // 3. Cloud Save
     if (state.respondent?.user?.id) {
       const payload = {
         respondentId: state.respondent.user.id,
@@ -87,7 +104,6 @@ export const useJourneyStore = create((set, get) => ({
       const nextIdx = currentIndex + 1;
       set({ currentIndex: nextIdx });
 
-      // Automatically save progress checkpoint to Supabase
       if (respondent?.user?.id) {
         const nextQ = questions[nextIdx];
         saveProgressToCloud({

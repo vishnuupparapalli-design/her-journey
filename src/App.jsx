@@ -34,6 +34,7 @@ function JourneyExperience() {
   const [authError, setAuthError] = useState('');
   const [welcomeCheckpoint, setWelcomeCheckpoint] = useState(null);
   const [showRestartModal, setShowRestartModal] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
   useEffect(() => {
     async function restoreSession() {
@@ -127,22 +128,27 @@ function JourneyExperience() {
   const chapter = getCurrentChapter();
   const existingAnswer = currentQ ? answers[currentQ.id] : null;
 
+  // Answers trigger the 3D effect, pause briefly to enjoy the reaction, then advance!
   const handleSave = async (questionId, value) => {
+    setIsTransitioning(true);
     await setAnswer(questionId, value);
-    nextQuestion();
+    
+    setTimeout(() => {
+      nextQuestion();
+      setIsTransitioning(false);
+    }, 700);
   };
 
   return (
     <main className="min-h-screen relative overflow-hidden bg-void text-moonlight select-none">
-      {/* 1. THE 3D BACKGROUND WORLD */}
+      {/* 1. THE 3D BACKGROUND WORLD WITH EFFECT MANAGER */}
       <SceneManager
         chapterId={chapter.id}
         chapterOrder={chapter.order}
       />
 
-      {/* 2. THE UI OVERLAY (Floats on top of 3D Canvas) */}
+      {/* 2. THE UI OVERLAY */}
       <div className="relative z-10 min-h-screen flex flex-col justify-between p-6 md:p-10 pointer-events-none">
-        {/* Welcome Back Card */}
         {welcomeCheckpoint && (
           <div className="pointer-events-auto">
             <WelcomeBack
@@ -155,7 +161,6 @@ function JourneyExperience() {
           </div>
         )}
 
-        {/* Restart Modal */}
         <div className="pointer-events-auto">
           <RestartModal
             isOpen={showRestartModal}
@@ -179,7 +184,6 @@ function JourneyExperience() {
           </div>
 
           <div className="flex items-center gap-4 text-right">
-            {/* Cloud Save Dot */}
             <div className="flex items-center gap-1.5 text-[11px] font-mono text-moonlight/60 bg-void/40 backdrop-blur-md px-3 py-1 rounded-full border border-moonlight/10">
               <span
                 className={`w-2 h-2 rounded-full ${
@@ -209,8 +213,8 @@ function JourneyExperience() {
           </div>
         </header>
 
-        {/* Question Surface (Card is interactive) */}
-        <div className="my-auto py-8 pointer-events-auto">
+        {/* Question Surface */}
+        <div className={`my-auto py-8 pointer-events-auto transition-opacity duration-300 ${isTransitioning ? 'opacity-70 scale-[0.99]' : 'opacity-100 scale-100'}`}>
           {currentQ ? (
             <QuestionRenderer
               question={currentQ}
@@ -272,7 +276,7 @@ function AdminCheck() {
       <div className="max-w-md w-full p-8 rounded-2xl border border-moonlight/10 bg-void/90 space-y-4 text-left">
         <h2 className="text-2xl font-serif text-moonlight">Admin Route Preview</h2>
         <p className="text-moonlight/60 text-xs">
-          Stage 6 verification: Answers in memory:
+          Stage 8 verification: Answers in memory:
         </p>
         <pre className="p-3 bg-void rounded-lg text-xs font-mono text-amber-glow overflow-x-auto max-h-48 border border-moonlight/10">
           {JSON.stringify(answers, null, 2)}

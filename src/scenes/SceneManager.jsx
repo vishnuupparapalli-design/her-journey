@@ -1,8 +1,9 @@
 import React, { Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
 import CameraRig from './CameraRig';
+import EffectManager from '../effects/EffectManager';
 
-// Import All 14 Chapter Worlds
+// All 14 Chapter Worlds
 import ArrivalScene from './chapters/ArrivalScene';
 import ReflectionsScene from './chapters/ReflectionsScene';
 import WondersScene from './chapters/WondersScene';
@@ -61,6 +62,10 @@ export default function SceneManager({ chapterId = 'arrival', chapterOrder = 1 }
         dpr={[1, 2]}
       >
         <CameraRig chapterOrder={chapterOrder} />
+        
+        {/* 3D Centralized Effect System */}
+        <EffectManager />
+
         <Suspense fallback={null}>
           {renderWorld()}
         </Suspense>
