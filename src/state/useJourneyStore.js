@@ -5,13 +5,15 @@ import { saveAnswerToCloud } from '../services/answers';
 import { saveProgressToCloud, resetProgressInCloud } from '../services/progress';
 import { addToQueue, flushOfflineQueue } from './useOfflineQueue';
 import { EFFECT_REGISTRY } from '../effects/registry';
+import { extractPersonalization } from './usePersonalization';
 
 export const useJourneyStore = create((set, get) => ({
   // Active 3D Effect
   activeEffect: null,
 
-  // Respondent / Session State
+  // Respondent & Personalization Profile
   respondent: null,
+  personalization: {},
   saveStatus: 'saved',
 
   // Navigation State
@@ -27,7 +29,6 @@ export const useJourneyStore = create((set, get) => ({
     return chapters.find((c) => c.id === q?.chapterId) || chapters[0];
   },
 
-  // Trigger an effect by ID from registry
   triggerEffect: (effectId) => {
     const effect = EFFECT_REGISTRY[effectId] || EFFECT_REGISTRY.particle_burst;
     set({ activeEffect: effect });
@@ -36,7 +37,11 @@ export const useJourneyStore = create((set, get) => ({
   clearActiveEffect: () => set({ activeEffect: null }),
 
   setRespondent: (respondent) => set({ respondent }),
-  setInitialAnswers: (answersMap) => set({ answers: answersMap }),
+  
+  setInitialAnswers: (answersMap) => {
+    const profile = extractPersonalization(answersMap);
+    set({ answers: answersMap, personalization: profile });
+  },
 
   setCloudProgress: (progressRow) => {
     if (!progressRow) return;
@@ -45,39 +50,41 @@ export const useJourneyStore = create((set, get) => ({
     set({
       currentIndex: targetIdx,
       completedQuestions: progressRow.completed_question_ids || [],
+      personalization: progressRow.personalization || {},
     });
   },
 
+  // Save answer, update personalization, and save to Supabase
   setAnswer: async (questionId, value) => {
     const state = get();
     const currentQ = state.getCurrentQuestion();
     const chapterId = currentQ?.chapterId || 'arrival';
     const answerType = currentQ?.type || 'unknown';
 
-    // 1. Play the question's registered 3D effect!
-    if (currentQ?.effect) {
-      state.triggerEffect(currentQ.effect);
-    } else {
-      state.triggerEffect('particle_burst');
-    }
+    // 1. Play 3D effect
+    state.triggerEffect(currentQ?.effect || 'particle_burst');
 
-    // 2. Local state update
-    const updatedCompleted = Array.from(new Set([...state.completedQuestions, questionId]));
-    set((s) => ({
-      answers: {
-        ...s.answers,
-        [questionId]: {
-          value,
-          answeredAt: new Date().toISOString(),
-        },
+    // 2. Update local state & re-extract personalization
+    const updatedAnswers = {
+      ...state.answers,
+      [questionId]: {
+        value,
+        answeredAt: new Date().toISOString(),
       },
-      completedQuestions: updatedCompleted,
-      saveStatus: 'saving',
-    }));
+    };
+    const updatedCompleted = Array.from(new Set([...state.completedQuestions, questionId]));
+    const updatedPersonalization = extractPersonalization(updatedAnswers);
 
-    // 3. Cloud Save
+    set({
+      answers: updatedAnswers,
+      completedQuestions: updatedCompleted,
+      personalization: updatedPersonalization,
+      saveStatus: 'saving',
+    });
+
+    // 3. Save Answer & Progress checkpoint to Supabase
     if (state.respondent?.user?.id) {
-      const payload = {
+      const answerPayload = {
         respondentId: state.respondent.user.id,
         questionId,
         chapterId,
@@ -86,11 +93,11 @@ export const useJourneyStore = create((set, get) => ({
       };
 
       try {
-        await saveAnswerToCloud(payload);
+        await saveAnswerToCloud(answerPayload);
         set({ saveStatus: 'saved' });
       } catch (err) {
-        console.warn('Network error saving answer. Queued offline:', err);
-        addToQueue(payload);
+        console.warn('Network error. Queued offline:', err);
+        addToQueue(answerPayload);
         set({ saveStatus: 'offline' });
       }
     } else {
@@ -99,7 +106,7 @@ export const useJourneyStore = create((set, get) => ({
   },
 
   nextQuestion: () => {
-    const { currentIndex, respondent, completedQuestions } = get();
+    const { currentIndex, respondent, completedQuestions, personalization } = get();
     if (currentIndex < questions.length - 1) {
       const nextIdx = currentIndex + 1;
       set({ currentIndex: nextIdx });
@@ -111,6 +118,7 @@ export const useJourneyStore = create((set, get) => ({
           currentChapterId: nextQ?.chapterId || 'arrival',
           currentQuestionOrder: nextIdx + 1,
           completedQuestionIds: completedQuestions,
+          personalization,
         });
       }
     }
@@ -132,6 +140,7 @@ export const useJourneyStore = create((set, get) => ({
     set({
       currentIndex: 0,
       completedQuestions: [],
+      personalization: {},
       ...(clearAnswers ? { answers: {} } : {}),
     });
 

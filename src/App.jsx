@@ -128,7 +128,6 @@ function JourneyExperience() {
   const chapter = getCurrentChapter();
   const existingAnswer = currentQ ? answers[currentQ.id] : null;
 
-  // Answers trigger the 3D effect, pause briefly to enjoy the reaction, then advance!
   const handleSave = async (questionId, value) => {
     setIsTransitioning(true);
     await setAnswer(questionId, value);
@@ -141,13 +140,13 @@ function JourneyExperience() {
 
   return (
     <main className="min-h-screen relative overflow-hidden bg-void text-moonlight select-none">
-      {/* 1. THE 3D BACKGROUND WORLD WITH EFFECT MANAGER */}
+      {/* 3D Background */}
       <SceneManager
         chapterId={chapter.id}
         chapterOrder={chapter.order}
       />
 
-      {/* 2. THE UI OVERLAY */}
+      {/* UI Overlay */}
       <div className="relative z-10 min-h-screen flex flex-col justify-between p-6 md:p-10 pointer-events-none">
         {welcomeCheckpoint && (
           <div className="pointer-events-auto">
@@ -270,17 +269,28 @@ function JourneyExperience() {
 }
 
 function AdminCheck() {
-  const { answers } = useJourneyStore();
+  const { answers, personalization } = useJourneyStore();
   return (
     <main className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-nebula/40">
       <div className="max-w-md w-full p-8 rounded-2xl border border-moonlight/10 bg-void/90 space-y-4 text-left">
-        <h2 className="text-2xl font-serif text-moonlight">Admin Route Preview</h2>
-        <p className="text-moonlight/60 text-xs">
-          Stage 8 verification: Answers in memory:
-        </p>
-        <pre className="p-3 bg-void rounded-lg text-xs font-mono text-amber-glow overflow-x-auto max-h-48 border border-moonlight/10">
-          {JSON.stringify(answers, null, 2)}
-        </pre>
+        <h2 className="text-2xl font-serif text-moonlight">Admin & Personalization Preview</h2>
+        
+        {/* Extracted Profile */}
+        <div>
+          <p className="text-xs text-moonlight/60 font-mono mb-1">EXTRACTED PERSONALIZATION PROFILE</p>
+          <pre className="p-3 bg-void rounded-lg text-xs font-mono text-sage-mist overflow-x-auto max-h-36 border border-moonlight/10">
+            {JSON.stringify(personalization, null, 2)}
+          </pre>
+        </div>
+
+        {/* Raw Answers */}
+        <div>
+          <p className="text-xs text-moonlight/60 font-mono mb-1">ALL SAVED ANSWERS</p>
+          <pre className="p-3 bg-void rounded-lg text-xs font-mono text-amber-glow overflow-x-auto max-h-36 border border-moonlight/10">
+            {JSON.stringify(answers, null, 2)}
+          </pre>
+        </div>
+
         <Link
           to="/"
           className="inline-block text-amber-glow hover:underline text-sm pt-2"
