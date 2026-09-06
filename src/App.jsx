@@ -6,10 +6,13 @@ import IdentityGate from './components/IdentityGate';
 import WelcomeBack from './components/WelcomeBack';
 import RestartModal from './components/RestartModal';
 import SceneManager from './scenes/SceneManager';
+import AdminLogin from './admin/AdminLogin';
+import Dashboard from './admin/Dashboard';
 import { authenticateWithPassphrase, getCurrentRespondent, signOutRespondent } from './services/auth';
 import { fetchRespondentAnswers } from './services/answers';
 import { fetchProgressFromCloud } from './services/progress';
 import { audioManager } from './audio/AudioManager';
+import { supabase } from './services/supabaseClient';
 
 function JourneyExperience() {
   const {
@@ -138,7 +141,6 @@ function JourneyExperience() {
   const chapter = getCurrentChapter();
   const existingAnswer = currentQ ? answers[currentQ.id] : null;
 
-  // HERE: Plays the starlight chime, triggers 3D burst, and advances!
   const handleSave = async (questionId, value) => {
     audioManager.playAnswerChime();
     setIsTransitioning(true);
@@ -152,13 +154,11 @@ function JourneyExperience() {
 
   return (
     <main className="min-h-screen relative overflow-hidden bg-void text-moonlight select-none">
-      {/* 3D Background Universe */}
       <SceneManager
         chapterId={chapter.id}
         chapterOrder={chapter.order}
       />
 
-      {/* UI Overlay */}
       <div className="relative z-10 min-h-screen flex flex-col justify-between p-6 md:p-10 pointer-events-none">
         {welcomeCheckpoint && (
           <div className="pointer-events-auto">
@@ -195,7 +195,6 @@ function JourneyExperience() {
           </div>
 
           <div className="flex items-center gap-3 md:gap-4 text-right">
-            {/* Audio Mute / Unmute Button */}
             <button
               onClick={toggleSound}
               title={isMuted ? 'Unmute chimes' : 'Mute chimes'}
@@ -204,7 +203,6 @@ function JourneyExperience() {
               {isMuted ? '🔇' : '🔊'}
             </button>
 
-            {/* Cloud Save Status */}
             <div className="flex items-center gap-1.5 text-[11px] font-mono text-moonlight/60 bg-void/40 backdrop-blur-md px-3 py-1 rounded-full border border-moonlight/10">
               <span
                 className={`w-2 h-2 rounded-full ${
@@ -290,38 +288,61 @@ function JourneyExperience() {
   );
 }
 
-function AdminCheck() {
-  const { answers, personalization } = useJourneyStore();
-  return (
-    <main className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-nebula/40">
-      <div className="max-w-md w-full p-8 rounded-2xl border border-moonlight/10 bg-void/90 space-y-4 text-left">
-        <h2 className="text-2xl font-serif text-moonlight">Admin Route Preview</h2>
-        <p className="text-moonlight/60 text-xs">
-          Stage 10 check: Answers & Profile:
-        </p>
-        <pre className="p-3 bg-void rounded-lg text-xs font-mono text-sage-mist overflow-x-auto max-h-36 border border-moonlight/10">
-          {JSON.stringify(personalization, null, 2)}
-        </pre>
-        <pre className="p-3 bg-void rounded-lg text-xs font-mono text-amber-glow overflow-x-auto max-h-48 border border-moonlight/10">
-          {JSON.stringify(answers, null, 2)}
-        </pre>
-        <Link
-          to="/"
-          className="inline-block text-amber-glow hover:underline text-sm pt-2"
-        >
-          ← Return to Journey
-        </Link>
+// Protected Admin Container
+function AdminPortal() {
+  const [adminUser, setAdminUser] = useState(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  useEffect(() => {
+    async function checkCurrentAdmin() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          // Check if admin
+          const { data } = await supabase
+            .from('admins')
+            .select('user_id')
+            .eq('user_id', session.user.id);
+
+          if (data && data.length > 0) {
+            setAdminUser(session.user);
+          }
+        }
+      } catch (e) {
+        console.error('Admin check error:', e);
+      } finally {
+        setCheckingAuth(false);
+      }
+    }
+    checkCurrentAdmin();
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setAdminUser(null);
+  };
+
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0B0E1A] text-xs font-mono text-[#EDEAE0]/40">
+        Verifying security clearance...
       </div>
-    </main>
-  );
+    );
+  }
+
+  if (!adminUser) {
+    return <AdminLogin onLoginSuccess={setAdminUser} />;
+  }
+
+  return <Dashboard onLogout={handleLogout} />;
 }
 
 export default function App() {
   return (
-    <div className="min-h-screen bg-void text-moonlight">
+    <div className="min-h-screen bg-[#0B0E1A] text-[#EDEAE0]">
       <Routes>
         <Route path="/" element={<JourneyExperience />} />
-        <Route path="/admin" element={<AdminCheck />} />
+        <Route path="/admin" element={<AdminPortal />} />
       </Routes>
     </div>
   );
