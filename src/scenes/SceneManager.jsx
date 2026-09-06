@@ -2,7 +2,7 @@ import React, { Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
 import CameraRig from './CameraRig';
 
-// 3D Chapter Worlds (1 through 8)
+// Import All 14 Chapter Worlds
 import ArrivalScene from './chapters/ArrivalScene';
 import ReflectionsScene from './chapters/ReflectionsScene';
 import WondersScene from './chapters/WondersScene';
@@ -11,6 +11,12 @@ import HorizonsScene from './chapters/HorizonsScene';
 import TidesScene from './chapters/TidesScene';
 import ConstellationScene from './chapters/ConstellationScene';
 import TwoPathsScene from './chapters/TwoPathsScene';
+import DistanceScene from './chapters/DistanceScene';
+import ThresholdsScene from './chapters/ThresholdsScene';
+import HerSkyScene from './chapters/HerSkyScene';
+import BuildingScene from './chapters/BuildingScene';
+import WeatheringScene from './chapters/WeatheringScene';
+import WhatsAheadScene from './chapters/WhatsAheadScene';
 
 export default function SceneManager({ chapterId = 'arrival', chapterOrder = 1 }) {
   const renderWorld = () => {
@@ -29,6 +35,18 @@ export default function SceneManager({ chapterId = 'arrival', chapterOrder = 1 }
         return <ConstellationScene />;
       case 'two_paths':
         return <TwoPathsScene />;
+      case 'distance':
+        return <DistanceScene />;
+      case 'thresholds':
+        return <ThresholdsScene />;
+      case 'her_sky':
+        return <HerSkyScene />;
+      case 'building':
+        return <BuildingScene />;
+      case 'weathering':
+        return <WeatheringScene />;
+      case 'whats_ahead':
+        return <WhatsAheadScene />;
       case 'arrival':
       default:
         return <ArrivalScene />;
