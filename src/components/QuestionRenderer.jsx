@@ -15,21 +15,18 @@ export default function QuestionRenderer({ question, currentAnswer, onSave, onSk
     }
   };
 
-  // Accessible Keyboard Navigation (1-9 to select, Enter to confirm, Esc to skip)
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Don't intercept typing in free_text textareas
       if (question.type === 'free_text' && document.activeElement?.tagName === 'TEXTAREA') {
         return;
       }
-
       if (e.key === 'Enter') {
         e.preventDefault();
         handleConfirm();
       } else if (e.key === 'Escape') {
         e.preventDefault();
         onSkip();
-      } else if (question.options && ['single_select', 'mood_select', 'two_path'].includes(question.type)) {
+      } else if (question.options && ['single_select', 'mood_select', 'two_path', 'image_select', 'object_select'].includes(question.type)) {
         const num = parseInt(e.key, 10);
         if (num >= 1 && num <= question.options.length) {
           setVal(question.options[num - 1].id);
@@ -47,7 +44,6 @@ export default function QuestionRenderer({ question, currentAnswer, onSave, onSk
       aria-label={`Question: ${question.text}`}
       className="w-full max-w-xl mx-auto p-6 md:p-8 rounded-3xl bg-nebula/60 backdrop-blur-xl border border-moonlight/10 shadow-2xl text-left space-y-6 animate-fade-in"
     >
-      {/* Question Header */}
       <div className="space-y-2">
         <h2 className="text-2xl md:text-3xl font-serif font-normal text-moonlight leading-snug">
           {question.text}
@@ -59,10 +55,9 @@ export default function QuestionRenderer({ question, currentAnswer, onSave, onSk
         )}
       </div>
 
-      {/* Dynamic Input Surface by Type */}
       <div className="py-2">
-        {/* 1. SINGLE SELECT */}
-        {question.type === 'single_select' && (
+        {/* 1. SINGLE SELECT / IMAGE SELECT / OBJECT SELECT */}
+        {['single_select', 'image_select', 'object_select'].includes(question.type) && question.options && (
           <div className="space-y-2.5">
             {question.options.map((opt, i) => {
               const selected = val === opt.id;
@@ -87,7 +82,7 @@ export default function QuestionRenderer({ question, currentAnswer, onSave, onSk
         )}
 
         {/* 2. MOOD SELECT */}
-        {question.type === 'mood_select' && (
+        {question.type === 'mood_select' && question.options && (
           <div className="flex flex-wrap gap-2.5">
             {question.options.map((opt, i) => {
               const selected = val === opt.id;
@@ -109,8 +104,8 @@ export default function QuestionRenderer({ question, currentAnswer, onSave, onSk
           </div>
         )}
 
-        {/* 3. MULTI SELECT */}
-        {question.type === 'multi_select' && (
+        {/* 3. MULTI SELECT / IDEAL DAY BUILDER */}
+        {['multi_select', 'ideal_day_builder'].includes(question.type) && question.options && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
             {question.options.map((opt) => {
               const list = Array.isArray(val) ? val : [];
@@ -140,8 +135,8 @@ export default function QuestionRenderer({ question, currentAnswer, onSave, onSk
           </div>
         )}
 
-        {/* 4. SLIDER */}
-        {question.type === 'slider' && (
+        {/* 4. SLIDER / TIMELINE */}
+        {['slider', 'timeline'].includes(question.type) && (
           <div className="space-y-4 pt-2">
             <input
               type="range"
@@ -153,9 +148,9 @@ export default function QuestionRenderer({ question, currentAnswer, onSave, onSk
               className="w-full accent-amber-glow h-2 bg-void/80 rounded-lg cursor-pointer"
             />
             <div className="flex justify-between text-xs text-moonlight/50 font-light">
-              <span>{question.minLabel ?? 'Low'}</span>
+              <span>{question.minLabel ?? (question.type === 'timeline' ? 'Early on' : 'Low')}</span>
               <span className="text-amber-glow font-mono text-sm">{val ?? '-'}</span>
-              <span>{question.maxLabel ?? 'High'}</span>
+              <span>{question.maxLabel ?? (question.type === 'timeline' ? 'Right now' : 'High')}</span>
             </div>
           </div>
         )}
@@ -175,7 +170,7 @@ export default function QuestionRenderer({ question, currentAnswer, onSave, onSk
         )}
 
         {/* 6. TWO PATH */}
-        {question.type === 'two_path' && (
+        {question.type === 'two_path' && question.options && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {question.options.map((opt) => {
               const selected = val === opt.id;
@@ -215,8 +210,8 @@ export default function QuestionRenderer({ question, currentAnswer, onSave, onSk
           </div>
         )}
 
-        {/* 8. RANKING */}
-        {question.type === 'ranking' && (
+        {/* 8. RANKING / VALUE PRIORITY */}
+        {['ranking', 'value_priority'].includes(question.type) && question.options && (
           <div className="space-y-2">
             {(() => {
               const currentOrder = Array.isArray(val)
@@ -247,7 +242,6 @@ export default function QuestionRenderer({ question, currentAnswer, onSave, onSk
                         type="button"
                         onClick={() => move(idx, idx - 1)}
                         disabled={idx === 0}
-                        aria-label={`Move ${option?.label} up`}
                         className="px-2.5 py-1 bg-nebula rounded hover:bg-void disabled:opacity-20 text-xs cursor-pointer"
                       >
                         ▲
@@ -256,7 +250,6 @@ export default function QuestionRenderer({ question, currentAnswer, onSave, onSk
                         type="button"
                         onClick={() => move(idx, idx + 1)}
                         disabled={idx === currentOrder.length - 1}
-                        aria-label={`Move ${option?.label} down`}
                         className="px-2.5 py-1 bg-nebula rounded hover:bg-void disabled:opacity-20 text-xs cursor-pointer"
                       >
                         ▼
@@ -270,7 +263,6 @@ export default function QuestionRenderer({ question, currentAnswer, onSave, onSk
         )}
       </div>
 
-      {/* Navigation Footer */}
       <div className="flex items-center justify-between pt-4 border-t border-moonlight/10">
         <button
           type="button"
