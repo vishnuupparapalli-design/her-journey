@@ -9,6 +9,7 @@ import SceneManager from './scenes/SceneManager';
 import { authenticateWithPassphrase, getCurrentRespondent, signOutRespondent } from './services/auth';
 import { fetchRespondentAnswers } from './services/answers';
 import { fetchProgressFromCloud } from './services/progress';
+import { audioManager } from './audio/AudioManager';
 
 function JourneyExperience() {
   const {
@@ -35,6 +36,7 @@ function JourneyExperience() {
   const [welcomeCheckpoint, setWelcomeCheckpoint] = useState(null);
   const [showRestartModal, setShowRestartModal] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isMuted, setIsMuted] = useState(audioManager.isMuted);
 
   useEffect(() => {
     async function restoreSession() {
@@ -68,6 +70,7 @@ function JourneyExperience() {
   }, []);
 
   const handleEnterUniverse = async (name, passphrase) => {
+    audioManager.init(); // Unlock browser audio
     setIsLoadingAuth(true);
     setAuthError('');
     try {
@@ -92,6 +95,7 @@ function JourneyExperience() {
   };
 
   const handleResumeCheckpoint = () => {
+    audioManager.init();
     if (welcomeCheckpoint) {
       setCloudProgress(welcomeCheckpoint);
       setWelcomeCheckpoint(null);
@@ -99,6 +103,7 @@ function JourneyExperience() {
   };
 
   const handleStartOverFromWelcome = async () => {
+    audioManager.init();
     setWelcomeCheckpoint(null);
     await restartJourney(false);
   };
@@ -111,6 +116,12 @@ function JourneyExperience() {
   const handleSignOut = async () => {
     await signOutRespondent();
     setRespondent(null);
+  };
+
+  const toggleSound = () => {
+    audioManager.init();
+    const muted = audioManager.toggleMute();
+    setIsMuted(muted);
   };
 
   if (!respondent) {
@@ -128,7 +139,10 @@ function JourneyExperience() {
   const chapter = getCurrentChapter();
   const existingAnswer = currentQ ? answers[currentQ.id] : null;
 
+  // On answer: Play celestial chime, trigger 3D burst, and advance!
   const handleSave = async (questionId, value) => {
+    audioManager.init();
+    audioManager.playAnswerChime();
     setIsTransitioning(true);
     await setAnswer(questionId, value);
     
@@ -140,7 +154,7 @@ function JourneyExperience() {
 
   return (
     <main className="min-h-screen relative overflow-hidden bg-void text-moonlight select-none">
-      {/* 3D Background */}
+      {/* 3D Background World */}
       <SceneManager
         chapterId={chapter.id}
         chapterOrder={chapter.order}
@@ -182,7 +196,17 @@ function JourneyExperience() {
             </h1>
           </div>
 
-          <div className="flex items-center gap-4 text-right">
+          <div className="flex items-center gap-3 md:gap-4 text-right">
+            {/* Audio Mute / Unmute Button */}
+            <button
+              onClick={toggleSound}
+              title={isMuted ? 'Unmute audio' : 'Mute audio'}
+              className="p-2 rounded-full bg-void/50 backdrop-blur-md border border-moonlight/10 text-moonlight/70 hover:text-amber-glow hover:border-amber-glow/40 transition-all cursor-pointer text-xs"
+            >
+              {isMuted ? '🔇' : '🔊'}
+            </button>
+
+            {/* Cloud Save Status */}
             <div className="flex items-center gap-1.5 text-[11px] font-mono text-moonlight/60 bg-void/40 backdrop-blur-md px-3 py-1 rounded-full border border-moonlight/10">
               <span
                 className={`w-2 h-2 rounded-full ${
@@ -275,7 +299,6 @@ function AdminCheck() {
       <div className="max-w-md w-full p-8 rounded-2xl border border-moonlight/10 bg-void/90 space-y-4 text-left">
         <h2 className="text-2xl font-serif text-moonlight">Admin & Personalization Preview</h2>
         
-        {/* Extracted Profile */}
         <div>
           <p className="text-xs text-moonlight/60 font-mono mb-1">EXTRACTED PERSONALIZATION PROFILE</p>
           <pre className="p-3 bg-void rounded-lg text-xs font-mono text-sage-mist overflow-x-auto max-h-36 border border-moonlight/10">
@@ -283,10 +306,9 @@ function AdminCheck() {
           </pre>
         </div>
 
-        {/* Raw Answers */}
         <div>
           <p className="text-xs text-moonlight/60 font-mono mb-1">ALL SAVED ANSWERS</p>
-          <pre className="p-3 bg-void rounded-lg text-xs font-mono text-amber-glow overflow-x-auto max-h-36 border border-moonlight/10">
+          <pre className="p-3 bg-void rounded-lg text-xs font-mono text-amber-glow overflow-x-auto max-h-48 border border-moonlight/10">
             {JSON.stringify(answers, null, 2)}
           </pre>
         </div>
