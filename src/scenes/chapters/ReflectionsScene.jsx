@@ -23,37 +23,37 @@ export default function ReflectionsScene() {
         />
       </mesh>
 
-      {/* 2. Floating Silver Prism (Left Side) */}
-      <Float speed={2} rotationIntensity={0.7} floatIntensity={1.2}>
-        <group position={[-2.9, 0.5, 0]}>
+      {/* 2. Silver Prism (Top-Left on Phone & Laptop) */}
+      <Float speed={2} rotationIntensity={0.6} floatIntensity={0.9}>
+        <group position={[-1.4, 2.0, 0]}>
           <mesh ref={crystalLeft}>
-            <octahedronGeometry args={[0.9, 0]} />
+            <octahedronGeometry args={[0.75, 0]} />
             <meshStandardMaterial
               color="#7FA7C4"
               emissive="#7FA7C4"
-              emissiveIntensity={0.5}
+              emissiveIntensity={0.6}
               roughness={0.1}
               metalness={0.9}
             />
           </mesh>
-          <pointLight color="#7FA7C4" intensity={2} distance={8} />
+          <pointLight color="#7FA7C4" intensity={2} distance={7} />
         </group>
       </Float>
 
-      {/* 3. Floating Sage Crystal (Right Side) */}
-      <Float speed={1.8} rotationIntensity={0.5} floatIntensity={1}>
-        <group position={[2.9, -0.3, 0]}>
+      {/* 3. Sage Crystal (Bottom-Right on Phone & Laptop) */}
+      <Float speed={1.8} rotationIntensity={0.5} floatIntensity={0.8}>
+        <group position={[1.4, -2.1, 0]}>
           <mesh ref={crystalRight}>
-            <coneGeometry args={[0.7, 1.8, 5]} />
+            <coneGeometry args={[0.55, 1.5, 5]} />
             <meshStandardMaterial
               color="#8FB39B"
               emissive="#8FB39B"
-              emissiveIntensity={0.4}
+              emissiveIntensity={0.5}
               roughness={0.15}
               metalness={0.85}
             />
           </mesh>
-          <pointLight color="#8FB39B" intensity={1.8} distance={8} />
+          <pointLight color="#8FB39B" intensity={1.8} distance={7} />
         </group>
       </Float>
 
