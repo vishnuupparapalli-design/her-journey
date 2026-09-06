@@ -70,7 +70,7 @@ function JourneyExperience() {
   }, []);
 
   const handleEnterUniverse = async (name, passphrase) => {
-    audioManager.init(); // Unlock browser audio
+    audioManager.init();
     setIsLoadingAuth(true);
     setAuthError('');
     try {
@@ -119,7 +119,6 @@ function JourneyExperience() {
   };
 
   const toggleSound = () => {
-    audioManager.init();
     const muted = audioManager.toggleMute();
     setIsMuted(muted);
   };
@@ -139,9 +138,8 @@ function JourneyExperience() {
   const chapter = getCurrentChapter();
   const existingAnswer = currentQ ? answers[currentQ.id] : null;
 
-  // On answer: Play celestial chime, trigger 3D burst, and advance!
+  // HERE: Plays the starlight chime, triggers 3D burst, and advances!
   const handleSave = async (questionId, value) => {
-    audioManager.init();
     audioManager.playAnswerChime();
     setIsTransitioning(true);
     await setAnswer(questionId, value);
@@ -154,7 +152,7 @@ function JourneyExperience() {
 
   return (
     <main className="min-h-screen relative overflow-hidden bg-void text-moonlight select-none">
-      {/* 3D Background World */}
+      {/* 3D Background Universe */}
       <SceneManager
         chapterId={chapter.id}
         chapterOrder={chapter.order}
@@ -200,7 +198,7 @@ function JourneyExperience() {
             {/* Audio Mute / Unmute Button */}
             <button
               onClick={toggleSound}
-              title={isMuted ? 'Unmute audio' : 'Mute audio'}
+              title={isMuted ? 'Unmute chimes' : 'Mute chimes'}
               className="p-2 rounded-full bg-void/50 backdrop-blur-md border border-moonlight/10 text-moonlight/70 hover:text-amber-glow hover:border-amber-glow/40 transition-all cursor-pointer text-xs"
             >
               {isMuted ? '🔇' : '🔊'}
@@ -297,22 +295,16 @@ function AdminCheck() {
   return (
     <main className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-nebula/40">
       <div className="max-w-md w-full p-8 rounded-2xl border border-moonlight/10 bg-void/90 space-y-4 text-left">
-        <h2 className="text-2xl font-serif text-moonlight">Admin & Personalization Preview</h2>
-        
-        <div>
-          <p className="text-xs text-moonlight/60 font-mono mb-1">EXTRACTED PERSONALIZATION PROFILE</p>
-          <pre className="p-3 bg-void rounded-lg text-xs font-mono text-sage-mist overflow-x-auto max-h-36 border border-moonlight/10">
-            {JSON.stringify(personalization, null, 2)}
-          </pre>
-        </div>
-
-        <div>
-          <p className="text-xs text-moonlight/60 font-mono mb-1">ALL SAVED ANSWERS</p>
-          <pre className="p-3 bg-void rounded-lg text-xs font-mono text-amber-glow overflow-x-auto max-h-48 border border-moonlight/10">
-            {JSON.stringify(answers, null, 2)}
-          </pre>
-        </div>
-
+        <h2 className="text-2xl font-serif text-moonlight">Admin Route Preview</h2>
+        <p className="text-moonlight/60 text-xs">
+          Stage 10 check: Answers & Profile:
+        </p>
+        <pre className="p-3 bg-void rounded-lg text-xs font-mono text-sage-mist overflow-x-auto max-h-36 border border-moonlight/10">
+          {JSON.stringify(personalization, null, 2)}
+        </pre>
+        <pre className="p-3 bg-void rounded-lg text-xs font-mono text-amber-glow overflow-x-auto max-h-48 border border-moonlight/10">
+          {JSON.stringify(answers, null, 2)}
+        </pre>
         <Link
           to="/"
           className="inline-block text-amber-glow hover:underline text-sm pt-2"
