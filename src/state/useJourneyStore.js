@@ -1,12 +1,18 @@
 import { create } from 'zustand';
 import { questions } from '../data/questions';
 import { chapters } from '../data/chapters';
+import { saveAnswerToCloud } from '../services/answers';
+import { addToQueue, flushOfflineQueue } from './useOfflineQueue';
 
 export const useJourneyStore = create((set, get) => ({
-  // Navigation state
+  // Respondent / Session State
+  respondent: null, // { user, displayName }
+  saveStatus: 'saved', // 'idle' | 'saving' | 'saved' | 'offline'
+
+  // Navigation State
   currentIndex: 0,
-  answers: {}, // Keyed by questionId: { value, answeredAt }
-  
+  answers: {},
+
   // Getters
   getCurrentQuestion: () => questions[get().currentIndex],
   getTotalQuestions: () => questions.length,
@@ -15,17 +21,52 @@ export const useJourneyStore = create((set, get) => ({
     return chapters.find((c) => c.id === q?.chapterId) || chapters[0];
   },
 
-  // Actions
-  setAnswer: (questionId, value) => {
-    set((state) => ({
+  // Set respondent after authentication
+  setRespondent: (respondent) => set({ respondent }),
+
+  // Set answers initially fetched from cloud
+  setInitialAnswers: (answersMap) => set({ answers: answersMap }),
+
+  // Save answer to local state + Cloud + Offline Queue
+  setAnswer: async (questionId, value) => {
+    const state = get();
+    const currentQ = state.getCurrentQuestion();
+    const chapterId = currentQ?.chapterId || 'arrival';
+    const answerType = currentQ?.type || 'unknown';
+
+    // 1. Optimistic instant local update
+    set((s) => ({
       answers: {
-        ...state.answers,
+        ...s.answers,
         [questionId]: {
           value,
           answeredAt: new Date().toISOString(),
         },
       },
+      saveStatus: 'saving',
     }));
+
+    // 2. Cloud Save (if signed in)
+    if (state.respondent?.user?.id) {
+      const payload = {
+        respondentId: state.respondent.user.id,
+        questionId,
+        chapterId,
+        answerValue: value,
+        answerType,
+      };
+
+      try {
+        await saveAnswerToCloud(payload);
+        set({ saveStatus: 'saved' });
+      } catch (err) {
+        console.warn('Network error saving to cloud. Queueing offline:', err);
+        addToQueue(payload);
+        set({ saveStatus: 'offline' });
+      }
+    } else {
+      set({ saveStatus: 'saved' });
+    }
   },
 
   nextQuestion: () => {
@@ -43,17 +84,13 @@ export const useJourneyStore = create((set, get) => ({
   },
 
   skipQuestion: () => {
-    // She can skip any question with zero penalty
     get().nextQuestion();
   },
 
-  goToQuestion: (index) => {
-    if (index >= 0 && index < questions.length) {
-      set({ currentIndex: index });
+  syncOfflineAnswers: async () => {
+    const res = await flushOfflineQueue();
+    if (res.flushed > 0) {
+      set({ saveStatus: 'saved' });
     }
-  },
-
-  resetJourney: () => {
-    set({ currentIndex: 0, answers: {} });
   },
 }));
