@@ -1,6 +1,6 @@
 /**
  * Master Audio Manager for "A Universe For Her"
- * Handles ambient sound, answer chimes, mute persistence, and autoplay unlock.
+ * Optimized with smooth attack/decay curves to eliminate mobile speaker popping.
  */
 
 const STORAGE_MUTE_KEY = 'journey_audio_muted';
@@ -14,7 +14,6 @@ class AudioManager {
     this.ambientOscillator = null;
   }
 
-  // Initialize Web Audio context on her first interaction
   init() {
     if (this.unlocked) return;
     try {
@@ -28,80 +27,93 @@ class AudioManager {
         this.startAmbientDrone();
       }
     } catch (e) {
-      console.warn('Web Audio not supported or blocked:', e);
+      console.warn('Web Audio not initialized:', e);
     }
   }
 
-  // Toggle Mute & save preference
   toggleMute() {
     this.isMuted = !this.isMuted;
     localStorage.setItem(STORAGE_MUTE_KEY, String(this.isMuted));
 
     if (this.ambientGain && this.ctx) {
-      const targetGain = this.isMuted ? 0 : 0.04;
+      const targetGain = this.isMuted ? 0 : 0.02;
       this.ambientGain.gain.setTargetAtTime(targetGain, this.ctx.currentTime, 0.2);
     }
 
     return this.isMuted;
   }
 
-  // Soft celestial wind chime when answering a question
+  // Pure, silky celestial wind chime (Engineered specifically for phone speakers)
   playAnswerChime() {
     if (this.isMuted || !this.ctx) return;
     try {
       if (this.ctx.state === 'suspended') this.ctx.resume();
 
-      // Pentatonic cosmic frequencies (gentle, warm, and comforting)
-      const freqs = [523.25, 659.25, 783.99, 1046.5]; // C5, E5, G5, C6
-      const randomFreq = freqs[Math.floor(Math.random() * freqs.length)];
+      const now = this.ctx.currentTime;
+      // Warm, crystalline harmonic frequencies
+      const freqs = [523.25, 659.25, 783.99, 1046.5];
+      const freq = freqs[Math.floor(Math.random() * freqs.length)];
 
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
+      const filter = this.ctx.createBiquadFilter();
+
+      // Soft lowpass filter to remove harsh phone distortion
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(2200, now);
 
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(randomFreq, this.ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(randomFreq * 1.5, this.ctx.currentTime + 0.8);
+      osc.frequency.setValueAtTime(freq, now);
+      osc.frequency.exponentialRampToValueAtTime(freq * 1.3, now + 0.8);
 
-      gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 1.2);
+      // SILKY ATTACK CURVE: Starts at 0.0001, fades up smoothly in 35ms (No clicks/cracks!)
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.045, now + 0.035);
+      // Soft exponential decay
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.95);
+      gain.gain.linearRampToValueAtTime(0, now + 1.0);
 
-      osc.connect(gain);
+      // Connect nodes: Oscillator -> Filter -> Gain -> Speakers
+      osc.connect(filter);
+      filter.connect(gain);
       gain.connect(this.ctx.destination);
 
-      osc.start();
-      osc.stop(this.ctx.currentTime + 1.3);
+      osc.start(now);
+      osc.stop(now + 1.05);
     } catch (e) {
       console.warn('Chime error:', e);
     }
   }
 
-  // Chapter Transition Swell
+  // Soft Chapter Swell
   playChapterSwell() {
     if (this.isMuted || !this.ctx) return;
     try {
       if (this.ctx.state === 'suspended') this.ctx.resume();
 
+      const now = this.ctx.currentTime;
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
 
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(220, this.ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(440, this.ctx.currentTime + 1.5);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(220, now);
+      osc.frequency.exponentialRampToValueAtTime(330, now + 1.2);
 
-      gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 1.8);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.03, now + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.2);
 
       osc.connect(gain);
       gain.connect(this.ctx.destination);
 
-      osc.start();
-      osc.stop(this.ctx.currentTime + 1.9);
+      osc.start(now);
+      osc.stop(now + 1.25);
     } catch (e) {
       console.warn('Swell error:', e);
     }
   }
 
-  // Continuous quiet cosmic ambient drone
+  // Gentle, warm ambient tone (softened for mobile)
   startAmbientDrone() {
     if (!this.ctx || this.ambientOscillator) return;
     try {
@@ -109,16 +121,16 @@ class AudioManager {
       this.ambientGain = this.ctx.createGain();
 
       this.ambientOscillator.type = 'sine';
-      this.ambientOscillator.frequency.setValueAtTime(110, this.ctx.currentTime); // Deep warm A2
+      this.ambientOscillator.frequency.setValueAtTime(164.81, this.ctx.currentTime); // E3 warm tone
 
-      this.ambientGain.gain.setValueAtTime(this.isMuted ? 0 : 0.035, this.ctx.currentTime);
+      this.ambientGain.gain.setValueAtTime(this.isMuted ? 0 : 0.02, this.ctx.currentTime);
 
       this.ambientOscillator.connect(this.ambientGain);
       this.ambientGain.connect(this.ctx.destination);
 
       this.ambientOscillator.start();
     } catch (e) {
-      console.warn('Ambient error:', e);
+      console.warn('Ambient drone error:', e);
     }
   }
 }
